@@ -122,6 +122,7 @@ func (g *gatewayImpl) open(ctx context.Context) error {
 		g.config.Logger.Error(g.formatLogsf("error connecting to the gateway. url: %s, error: %s, body: %s", gatewayURL, err, body))
 		return err
 	}
+	g.config.Logger.Debug(g.formatLogs("connected to gateway"))
 
 	conn.SetCloseHandler(func(code int, text string) error {
 		return nil
@@ -281,8 +282,6 @@ func (g *gatewayImpl) sendHeartbeat() {
 
 func (g *gatewayImpl) identify() {
 	g.status = StatusIdentifying
-	g.config.Logger.Debug(g.formatLogs("sending Identify command..."))
-
 	identify := MessageDataIdentify{
 		Token: g.token,
 		Properties: IdentifyCommandDataProperties{
@@ -297,7 +296,10 @@ func (g *gatewayImpl) identify() {
 		Shard:          &[2]int{g.ShardID(), g.ShardCount()},
 	}
 
-	if err := g.Send(context.TODO(), OpcodeIdentify, identify); err != nil {
+	g.config.Logger.Debug(g.formatLogs("sending Identify command..."))
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := g.Send(ctx, OpcodeIdentify, identify); err != nil {
 		g.config.Logger.Error(g.formatLogs("error sending Identify command err: ", err))
 	}
 	g.status = StatusWaitingForReady
@@ -312,17 +314,21 @@ func (g *gatewayImpl) resume() {
 	}
 
 	g.config.Logger.Debug(g.formatLogs("sending Resume command..."))
-	if err := g.Send(context.TODO(), OpcodeResume, resume); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := g.Send(ctx, OpcodeResume, resume); err != nil {
 		g.config.Logger.Error(g.formatLogs("error sending resume command err: ", err))
 	}
 }
 
 func (g *gatewayImpl) listen(conn *websocket.Conn) {
+	g.config.Logger.Debug(g.formatLogs("starting listen goroutine..."))
 	defer g.config.Logger.Debug(g.formatLogs("exiting listen goroutine..."))
 loop:
 	for {
 		mt, data, err := conn.ReadMessage()
 		if err != nil {
+			g.config.Logger.Debug(g.formatLogs("error reading message from gateway. error: ", err))
 			g.connMu.Lock()
 			sameConnection := g.conn == conn
 			g.connMu.Unlock()
@@ -351,8 +357,6 @@ loop:
 			} else if errors.Is(err, net.ErrClosed) {
 				// we closed the connection ourselves. Don't try to reconnect here
 				reconnect = false
-			} else {
-				g.config.Logger.Debug(g.formatLogs("failed to read next message from gateway. error: ", err))
 			}
 
 			// make sure the connection is properly closed
@@ -376,6 +380,7 @@ loop:
 
 		switch message.Op {
 		case OpcodeHello:
+			g.config.Logger.Debug(g.formatLogs("received Hello message"))
 			g.heartbeatInterval = time.Duration(message.D.(MessageDataHello).HeartbeatInterval) * time.Millisecond
 			g.lastHeartbeatReceived = time.Now().UTC()
 			go g.heartbeat()
@@ -387,6 +392,7 @@ loop:
 			}
 
 		case OpcodeDispatch:
+			g.config.Logger.Trace(g.formatLogsf("received Dispatch message. event: %s data: %s", message.T, string(message.RawD)))
 			// set last sequence received
 			g.config.LastSequenceReceived = &message.S
 
@@ -419,9 +425,11 @@ loop:
 			g.eventHandlerFunc(message.T, message.S, g.config.ShardID, eventData)
 
 		case OpcodeHeartbeat:
+			g.config.Logger.Debug(g.formatLogs("received Heartbeat message"))
 			g.sendHeartbeat()
 
 		case OpcodeReconnect:
+			g.config.Logger.Debug(g.formatLogs("received Reconnect message"))
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			g.CloseWithCode(ctx, websocket.CloseServiceRestart, "received reconnect")
 			cancel()
@@ -429,6 +437,7 @@ loop:
 			break loop
 
 		case OpcodeInvalidSession:
+			g.config.Logger.Debug(g.formatLogs("received InvalidSession message, data: %s", string(message.RawD)))
 			canResume := message.D.(MessageDataInvalidSession)
 
 			code := websocket.CloseNormalClosure
@@ -473,8 +482,6 @@ func (g *gatewayImpl) parseMessage(mt int, data []byte) (Message, error) {
 	} else {
 		finalData = data
 	}
-
-	g.config.Logger.Trace(g.formatLogs("received gateway message: ", string(finalData)))
 
 	var message Message
 	return message, json.Unmarshal(finalData, &message)
