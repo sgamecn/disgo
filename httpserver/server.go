@@ -17,7 +17,7 @@ import (
 
 type (
 	// EventHandlerFunc is used to handle events from Discord's Outgoing Webhooks
-	EventHandlerFunc func(responseFunc RespondFunc, event EventInteractionCreate)
+	EventHandlerFunc func(responseFunc RespondFunc, event EventInteractionCreate, originalBuff []byte)
 
 	// RespondFunc is used to respond to Discord's Outgoing Webhooks
 	RespondFunc func(response discord.InteractionResponse) error
@@ -155,7 +155,7 @@ func HandleInteraction(publicKey PublicKey, logger log.Logger, handleFunc EventH
 			responseChannel <- response
 			// wait if we get any error while processing the response
 			return <-errorChannel
-		}, v)
+		}, v, rqData)
 
 		var (
 			body any
