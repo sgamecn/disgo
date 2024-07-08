@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"context"
+
 	"github.com/disgoorg/snowflake/v2"
 
 	"github.com/disgoorg/disgo/discord"
@@ -10,19 +12,8 @@ import (
 
 type AutocompleteEvent struct {
 	*events.AutocompleteInteractionCreate
-	Variables map[string]string
-}
-
-func (e *AutocompleteEvent) GetInteractionResponse(opts ...rest.RequestOpt) (*discord.Message, error) {
-	return e.Client().Rest().GetInteractionResponse(e.ApplicationID(), e.Token(), opts...)
-}
-
-func (e *AutocompleteEvent) UpdateInteractionResponse(messageUpdate discord.MessageUpdate, opts ...rest.RequestOpt) (*discord.Message, error) {
-	return e.Client().Rest().UpdateInteractionResponse(e.ApplicationID(), e.Token(), messageUpdate, opts...)
-}
-
-func (e *AutocompleteEvent) DeleteInteractionResponse(opts ...rest.RequestOpt) error {
-	return e.Client().Rest().DeleteInteractionResponse(e.ApplicationID(), e.Token(), opts...)
+	Vars map[string]string
+	Ctx  context.Context
 }
 
 func (e *AutocompleteEvent) GetFollowupMessage(messageID snowflake.ID, opts ...rest.RequestOpt) (*discord.Message, error) {

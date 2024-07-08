@@ -115,7 +115,7 @@ A full Ping Pong example can also be found [here](https://github.com/disgoorg/di
 
 ### Logging
 
-DisGo uses our own small [logging interface](https://github.com/disgoorg/log) which you can use with most other logging libraries. This lib also comes with a default logger which is based on the standard log package.
+DisGo uses [slog](https://pkg.go.dev/log/slog) for logging.
 
 ## Documentation
 
@@ -156,10 +156,6 @@ Being used in production by FredBoat, Dyno, LewdBot, and more.
 
 Is a [Lavalink-Client](https://github.com/freyacodes/Lavalink) which can be used to communicate with Lavalink to play/search tracks
 
-### [DisLog](https://github.com/disgoorg/dislog)
-
-Is a Discord webhook logger hook for [logrus](https://github.com/sirupsen/logrus)
-
 ## Other Golang Discord Libraries
 
 * [discordgo](https://github.com/bwmarrin/discordgo)
@@ -178,3 +174,7 @@ Contributions are welcomed but for bigger changes we recommend first reaching ou
 ## License
 
 Distributed under the [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/disgoorg/disgo/blob/master/LICENSE). See LICENSE for more information.
+
+## Supported by Jetbrains
+
+<a href="https://www.jetbrains.com/community/opensource" target="_blank" title="Jetbrain Open Source Community Support"><img src="https://resources.jetbrains.com/storage/products/company/brand/logos/jb_beam.png" alt="Jetbrain Open Source Community Support" width="400px">

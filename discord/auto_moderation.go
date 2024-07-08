@@ -10,6 +10,7 @@ type AutoModerationEventType int
 
 const (
 	AutoModerationEventTypeMessageSend AutoModerationEventType = iota + 1
+	AutoModerationEventTypeMemberUpdate
 )
 
 type AutoModerationTriggerType int
@@ -20,14 +21,16 @@ const (
 	AutoModerationTriggerTypeSpam
 	AutoModerationTriggerTypeKeywordPresent
 	AutoModerationTriggerTypeMentionSpam
+	AutoModerationTriggerTypeMemberProfile
 )
 
 type AutoModerationTriggerMetadata struct {
-	KeywordFilter     []string                      `json:"keyword_filter"`
-	RegexPatterns     []string                      `json:"regex_patterns"`
-	Presets           []AutoModerationKeywordPreset `json:"presets"`
-	AllowList         []string                      `json:"allow_list"`
-	MentionTotalLimit int                           `json:"mention_total_limit"`
+	KeywordFilter                []string                      `json:"keyword_filter"`
+	RegexPatterns                []string                      `json:"regex_patterns"`
+	Presets                      []AutoModerationKeywordPreset `json:"presets"`
+	AllowList                    []string                      `json:"allow_list"`
+	MentionTotalLimit            int                           `json:"mention_total_limit"`
+	MentionRaidProtectionEnabled bool                          `json:"mention_raid_protection_enabled"`
 }
 
 type AutoModerationKeywordPreset int
@@ -44,6 +47,7 @@ const (
 	AutoModerationActionTypeBlockMessage AutoModerationActionType = iota + 1
 	AutoModerationActionTypeSendAlertMessage
 	AutoModerationActionTypeTimeout
+	AutoModerationActionTypeBlockMemberInteraction
 )
 
 type AutoModerationAction struct {

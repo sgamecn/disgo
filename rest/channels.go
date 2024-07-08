@@ -36,7 +36,7 @@ type Channels interface {
 	BulkDeleteMessages(channelID snowflake.ID, messageIDs []snowflake.ID, opts ...RequestOpt) error
 	CrosspostMessage(channelID snowflake.ID, messageID snowflake.ID, opts ...RequestOpt) (*discord.Message, error)
 
-	GetReactions(channelID snowflake.ID, messageID snowflake.ID, emoji string, opts ...RequestOpt) ([]discord.User, error)
+	GetReactions(channelID snowflake.ID, messageID snowflake.ID, emoji string, reactionType discord.MessageReactionType, after int, limit int, opts ...RequestOpt) ([]discord.User, error)
 	AddReaction(channelID snowflake.ID, messageID snowflake.ID, emoji string, opts ...RequestOpt) error
 	RemoveOwnReaction(channelID snowflake.ID, messageID snowflake.ID, emoji string, opts ...RequestOpt) error
 	RemoveUserReaction(channelID snowflake.ID, messageID snowflake.ID, emoji string, userID snowflake.ID, opts ...RequestOpt) error
@@ -46,7 +46,11 @@ type Channels interface {
 	GetPinnedMessages(channelID snowflake.ID, opts ...RequestOpt) ([]discord.Message, error)
 	PinMessage(channelID snowflake.ID, messageID snowflake.ID, opts ...RequestOpt) error
 	UnpinMessage(channelID snowflake.ID, messageID snowflake.ID, opts ...RequestOpt) error
-	// TODO: add missing endpoints
+	Follow(channelID snowflake.ID, targetChannelID snowflake.ID, opts ...RequestOpt) (*discord.FollowedChannel, error)
+
+	GetPollAnswerVotes(channelID snowflake.ID, messageID snowflake.ID, answerID int, after snowflake.ID, limit int, opts ...RequestOpt) ([]discord.User, error)
+	GetPollAnswerVotesPage(channelID snowflake.ID, messageID snowflake.ID, answerID int, startID snowflake.ID, limit int, opts ...RequestOpt) PollAnswerVotesPage
+	ExpirePoll(channelID snowflake.ID, messageID snowflake.ID, opts ...RequestOpt) (*discord.Message, error)
 }
 
 type channelImpl struct {
@@ -76,7 +80,14 @@ func (s *channelImpl) DeleteChannel(channelID snowflake.ID, opts ...RequestOpt) 
 }
 
 func (s *channelImpl) GetWebhooks(channelID snowflake.ID, opts ...RequestOpt) (webhooks []discord.Webhook, err error) {
-	err = s.client.Do(GetChannelWebhooks.Compile(nil, channelID), nil, &webhooks, opts...)
+	var whs []discord.UnmarshalWebhook
+	err = s.client.Do(GetChannelWebhooks.Compile(nil, channelID), nil, &whs, opts...)
+	if err == nil {
+		webhooks = make([]discord.Webhook, len(whs))
+		for i := range whs {
+			webhooks[i] = whs[i].Webhook
+		}
+	}
 	return
 }
 
@@ -173,8 +184,17 @@ func (s *channelImpl) CrosspostMessage(channelID snowflake.ID, messageID snowfla
 	return
 }
 
-func (s *channelImpl) GetReactions(channelID snowflake.ID, messageID snowflake.ID, emoji string, opts ...RequestOpt) (users []discord.User, err error) {
-	err = s.client.Do(GetReactions.Compile(nil, channelID, messageID, emoji), nil, &users, opts...)
+func (s *channelImpl) GetReactions(channelID snowflake.ID, messageID snowflake.ID, emoji string, reactionType discord.MessageReactionType, after int, limit int, opts ...RequestOpt) (users []discord.User, err error) {
+	values := discord.QueryValues{
+		"type": reactionType,
+	}
+	if after != 0 {
+		values["after"] = after
+	}
+	if limit != 0 {
+		values["limit"] = limit
+	}
+	err = s.client.Do(GetReactions.Compile(values, channelID, messageID, emoji), nil, &users, opts...)
 	return
 }
 
@@ -213,5 +233,31 @@ func (s *channelImpl) UnpinMessage(channelID snowflake.ID, messageID snowflake.I
 
 func (s *channelImpl) Follow(channelID snowflake.ID, targetChannelID snowflake.ID, opts ...RequestOpt) (followedChannel *discord.FollowedChannel, err error) {
 	err = s.client.Do(FollowChannel.Compile(nil, channelID), discord.FollowChannel{ChannelID: targetChannelID}, &followedChannel, opts...)
+	return
+}
+
+func (s *channelImpl) GetPollAnswerVotes(channelID snowflake.ID, messageID snowflake.ID, answerID int, after snowflake.ID, limit int, opts ...RequestOpt) (users []discord.User, err error) {
+	values := discord.QueryValues{}
+	if after != 0 {
+		values["after"] = after
+	}
+	if limit != 0 {
+		values["limit"] = limit
+	}
+	err = s.client.Do(GetPollAnswerVotes.Compile(values, channelID, messageID, answerID), nil, &users, opts...)
+	return
+}
+
+func (s *channelImpl) GetPollAnswerVotesPage(channelID snowflake.ID, messageID snowflake.ID, answerID int, startID snowflake.ID, limit int, opts ...RequestOpt) PollAnswerVotesPage {
+	return PollAnswerVotesPage{
+		getItems: func(after snowflake.ID) ([]discord.User, error) {
+			return s.GetPollAnswerVotes(channelID, messageID, answerID, after, limit, opts...)
+		},
+		ID: startID,
+	}
+}
+
+func (s *channelImpl) ExpirePoll(channelID snowflake.ID, messageID snowflake.ID, opts ...RequestOpt) (message *discord.Message, err error) {
+	err = s.client.Do(ExpirePoll.Compile(nil, channelID, messageID), nil, &message, opts...)
 	return
 }
