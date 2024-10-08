@@ -21,7 +21,7 @@ const (
 	MessageTypeCall
 	MessageTypeChannelNameChange
 	MessageTypeChannelIconChange
-	ChannelPinnedMessage
+	MessageTypeChannelPinnedMessage
 	MessageTypeUserJoin
 	MessageTypeGuildBoost
 	MessageTypeGuildBoostTier1
@@ -48,7 +48,9 @@ const (
 	_
 	MessageTypeStageTopic
 	MessageTypeGuildApplicationPremiumSubscription
-	MessageTypePurchaseNotification MessageType = 44
+	MessageTypePurchaseNotification MessageType = iota + 11
+	_
+	MessageTypePollResult
 )
 
 func (t MessageType) System() bool {
@@ -80,14 +82,13 @@ func MessageURL(guildID snowflake.ID, channelID snowflake.ID, messageID snowflak
 
 // Message is a struct for messages sent in discord text-based channels
 type Message struct {
-	ID          snowflake.ID         `json:"id"`
-	GuildID     *snowflake.ID        `json:"guild_id"`
-	Reactions   []MessageReaction    `json:"reactions"`
-	Attachments []Attachment         `json:"attachments"`
-	TTS         bool                 `json:"tts"`
-	Embeds      []Embed              `json:"embeds,omitempty"`
-	Components  []ContainerComponent `json:"components,omitempty"`
-	// Note: for message update events, this field is populated by the creation of the ID during unmarshalling
+	ID                   snowflake.ID          `json:"id"`
+	GuildID              *snowflake.ID         `json:"guild_id"`
+	Reactions            []MessageReaction     `json:"reactions"`
+	Attachments          []Attachment          `json:"attachments"`
+	TTS                  bool                  `json:"tts"`
+	Embeds               []Embed               `json:"embeds,omitempty"`
+	Components           []ContainerComponent  `json:"components,omitempty"`
 	CreatedAt            time.Time             `json:"timestamp"`
 	Mentions             []User                `json:"mentions"`
 	MentionEveryone      bool                  `json:"mention_everyone"`
@@ -134,10 +135,7 @@ func (m *Message) UnmarshalJSON(data []byte) error {
 	*m = Message(v.message)
 
 	if len(v.Components) > 0 {
-		m.Components = make([]ContainerComponent, len(v.Components))
-		for i := range v.Components {
-			m.Components[i] = v.Components[i].Component.(ContainerComponent)
-		}
+		m.Components = unmarshalComponents(v.Components)
 	}
 
 	if m.Member != nil && m.GuildID != nil {
@@ -427,15 +425,38 @@ type MessageSnapshot struct {
 }
 
 type PartialMessage struct {
-	Type            MessageType    `json:"type"`
-	Content         string         `json:"content,omitempty"`
-	Embeds          []Embed        `json:"embeds,omitempty"`
-	Attachments     []Attachment   `json:"attachments"`
-	CreatedAt       time.Time      `json:"timestamp"`
-	EditedTimestamp *time.Time     `json:"edited_timestamp"`
-	Flags           MessageFlags   `json:"flags"`
-	Mentions        []User         `json:"mentions"`
-	MentionRoles    []snowflake.ID `json:"mention_roles"`
+	Type            MessageType          `json:"type"`
+	Content         string               `json:"content,omitempty"`
+	Embeds          []Embed              `json:"embeds,omitempty"`
+	Attachments     []Attachment         `json:"attachments"`
+	CreatedAt       time.Time            `json:"timestamp"`
+	EditedTimestamp *time.Time           `json:"edited_timestamp"`
+	Flags           MessageFlags         `json:"flags"`
+	Mentions        []User               `json:"mentions"`
+	MentionRoles    []snowflake.ID       `json:"mention_roles"`
+	Stickers        []Sticker            `json:"stickers"`
+	StickerItems    []MessageSticker     `json:"sticker_items,omitempty"`
+	Components      []ContainerComponent `json:"components,omitempty"`
+}
+
+func (m *PartialMessage) UnmarshalJSON(data []byte) error {
+	type partialMessage PartialMessage
+	var v struct {
+		Components []UnmarshalComponent `json:"components"`
+		partialMessage
+	}
+
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+
+	*m = PartialMessage(v.partialMessage)
+
+	if len(v.Components) > 0 {
+		m.Components = unmarshalComponents(v.Components)
+	}
+
+	return nil
 }
 
 // MessageInteraction is sent on the Message object when the message is a response to an interaction
@@ -513,4 +534,12 @@ type InteractionMetadata struct {
 type MessageCall struct {
 	Participants   []snowflake.ID `json:"participants"`
 	EndedTimestamp *time.Time     `json:"ended_timestamp"`
+}
+
+func unmarshalComponents(components []UnmarshalComponent) []ContainerComponent {
+	containerComponents := make([]ContainerComponent, len(components))
+	for i := range components {
+		containerComponents[i] = components[i].Component.(ContainerComponent)
+	}
+	return containerComponents
 }

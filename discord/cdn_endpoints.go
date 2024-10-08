@@ -46,6 +46,8 @@ var (
 	CustomSticker     = NewCDN("/stickers/{sticker.id}", FileFormatPNG, FileFormatLottie, FileFormatGIF)
 
 	AttachmentFile = NewCDN("/attachments/{channel.id}/{attachment.id}/{file.name}", FileFormatNone)
+
+	SoundboardSoundFile = NewCDN("/soundboard-sounds/{sound.id}", FileFormatNone)
 )
 
 // FileFormat is the type of file on Discord's CDN (https://discord.com/developers/docs/reference#image-formatting-image-formats)
@@ -94,17 +96,22 @@ func (e CDNEndpoint) URL(format FileFormat, values QueryValues, params ...any) s
 		query = "?" + query
 	}
 
-	// for some reason custom gif stickers use a different cnd url, blame discord for this one
+	// for some reason custom gif stickers use a different cdn url, blame discord for this one
 	if format == FileFormatGIF && e.Route == "/stickers/{sticker.id}" {
 		return urlPrint(CDNMedia+e.Route+"."+format.String(), params...) + query
 	}
+	route := CDN + e.Route
+	// only append period and file extension if the format is not FileFormatNone
+	if format != FileFormatNone {
+		route += "." + format.String()
+	}
 
-	return urlPrint(CDN+e.Route+"."+format.String(), params...) + query
+	return urlPrint(route, params...) + query
 }
 
-func DefaultCDNConfig() *CDNConfig {
+func DefaultCDNConfig(format FileFormat) *CDNConfig {
 	return &CDNConfig{
-		Format: FileFormatPNG,
+		Format: format,
 		Values: QueryValues{},
 	}
 }
@@ -136,7 +143,13 @@ func WithFormat(format FileFormat) CDNOpt {
 }
 
 func formatAssetURL(cdnRoute *CDNEndpoint, opts []CDNOpt, params ...any) string {
-	config := DefaultCDNConfig()
+	format := FileFormatNone
+	if len(cdnRoute.Formats) > 0 { // just in case someone fucks up
+		// use the first provided format in the route definition itself. if the user provides a different format, this will be overriden by the Apply function call below
+		// previously, the default format was png, which would cause issues for cdn endpoints like attachments and soundboard sounds, requiring custom "overrides"
+		format = cdnRoute.Formats[0]
+	}
+	config := DefaultCDNConfig(format)
 	config.Apply(opts)
 
 	var lastStringParam string

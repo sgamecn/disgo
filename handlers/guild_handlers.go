@@ -58,6 +58,10 @@ func gatewayHandlerGuildCreate(client bot.Client, sequenceNumber int, shardID in
 		client.Caches().AddGuildScheduledEvent(guildScheduledEvent)
 	}
 
+	for _, soundboardSound := range event.SoundboardSounds {
+		client.Caches().AddGuildSoundboardSound(soundboardSound)
+	}
+
 	for _, presence := range event.Presences {
 		presence.GuildID = event.ID // populate unset field
 		client.Caches().AddPresence(presence)
@@ -87,6 +91,7 @@ func gatewayHandlerGuildCreate(client bot.Client, sequenceNumber int, shardID in
 			}()
 		}
 
+		return
 	}
 	if wasUnavailable {
 		client.Caches().SetGuildUnavailable(event.ID, false)
@@ -114,6 +119,10 @@ func gatewayHandlerGuildUpdate(client bot.Client, sequenceNumber int, shardID in
 }
 
 func gatewayHandlerGuildDelete(client bot.Client, sequenceNumber int, shardID int, event gateway.EventGuildDelete) {
+	if event.Unavailable {
+		client.Caches().SetGuildUnavailable(event.ID, true)
+	}
+
 	guild, _ := client.Caches().RemoveGuild(event.ID)
 	client.Caches().RemoveVoiceStatesByGuildID(event.ID)
 	client.Caches().RemovePresencesByGuildID(event.ID)
@@ -130,11 +139,8 @@ func gatewayHandlerGuildDelete(client bot.Client, sequenceNumber int, shardID in
 	client.Caches().RemoveMembersByGuildID(event.ID)
 	client.Caches().RemoveStageInstancesByGuildID(event.ID)
 	client.Caches().RemoveGuildScheduledEventsByGuildID(event.ID)
+	client.Caches().RemoveGuildSoundboardSoundsByGuildID(event.ID)
 	client.Caches().RemoveMessagesByGuildID(event.ID)
-
-	if event.Unavailable {
-		client.Caches().SetGuildUnavailable(event.ID, true)
-	}
 
 	genericGuildEvent := &events.GenericGuild{
 		GenericEvent: events.NewGenericEvent(client, sequenceNumber, shardID),
