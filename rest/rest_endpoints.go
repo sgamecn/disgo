@@ -44,7 +44,6 @@ var (
 	GetCurrentUserApplicationRoleConnection    = NewNoBotAuthEndpoint(http.MethodGet, "/users/@me/applications/{application.id}/role-connection")
 	UpdateCurrentUserApplicationRoleConnection = NewNoBotAuthEndpoint(http.MethodPut, "/users/@me/applications/{application.id}/role-connection")
 	LeaveGuild                                 = NewEndpoint(http.MethodDelete, "/users/@me/guilds/{guild.id}")
-	GetDMChannels                              = NewEndpoint(http.MethodGet, "/users/@me/channels")
 	CreateDMChannel                            = NewEndpoint(http.MethodPost, "/users/@me/channels")
 )
 
@@ -176,8 +175,6 @@ var (
 	GetChannelWebhooks = NewEndpoint(http.MethodGet, "/channels/{channel.id}/webhooks")
 	CreateWebhook      = NewEndpoint(http.MethodPost, "/channels/{channel.id}/webhooks")
 
-	GetPermissionOverwrites   = NewEndpoint(http.MethodGet, "/channels/{channel.id}/permissions")
-	GetPermissionOverwrite    = NewEndpoint(http.MethodGet, "/channels/{channel.id}/permissions/{overwrite.id}")
 	UpdatePermissionOverwrite = NewEndpoint(http.MethodPut, "/channels/{channel.id}/permissions/{overwrite.id}")
 	DeletePermissionOverwrite = NewEndpoint(http.MethodDelete, "/channels/{channel.id}/permissions/{overwrite.id}")
 
@@ -314,6 +311,7 @@ var (
 	UpdateApplicationRoleConnectionMetadata = NewEndpoint(http.MethodPut, "/applications/{application.id}/role-connections/metadata")
 
 	GetEntitlements       = NewEndpoint(http.MethodGet, "/applications/{application.id}/entitlements")
+	GetEntitlement        = NewEndpoint(http.MethodGet, "/applications/{application.id}/entitlements/{entitlement.id}")
 	CreateTestEntitlement = NewEndpoint(http.MethodPost, "/applications/{application.id}/entitlements")
 	DeleteTestEntitlement = NewEndpoint(http.MethodDelete, "/applications/{application.id}/entitlements/{entitlement.id}")
 	ConsumeEntitlement    = NewEndpoint(http.MethodPost, "/applications/{application.id}/entitlements/{entitlement.id}/consume")
